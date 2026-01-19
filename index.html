@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bolsas Compartidas</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { margin: 0; padding: 1rem; background: #f2f4f8; }
+    h1 { text-align: center; margin-bottom: 1rem; }
+    .container { max-width: 900px; margin: auto; }
+
+    .new-bag {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .new-bag input, .new-bag button {
+      padding: .6rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: .95rem;
+    }
+
+    .new-bag button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+
+    .bags {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+
+    .bag {
+      background: #fff;
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow: 0 6px 15px rgba(0,0,0,.08);
+      display: flex;
+      flex-direction: column;
+      gap: .7rem;
+    }
+
+    .bag h3 { margin: 0; }
+
+    .saldo {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .saldo.negativo { color: #dc2626; }
+    .saldo.positivo { color: #16a34a; }
+
+    .controls {
+      display: flex;
+      gap: .5rem;
+    }
+
+    .controls input {
+      flex: 1;
+      padding: .5rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .controls button {
+      padding: .5rem .7rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .gasto { background: #ef4444; color: #fff; }
+    .ingreso { background: #22c55e; color: #fff; }
+
+    @media (max-width: 600px) {
+      .controls { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <h1>💶 Bolsas Compartidas</h1>
+  <div class="container">
+    <div class="new-bag">
+      <input id="bagName" placeholder="Nombre de la bolsa" />
+      <input id="bagBudget" type="number" placeholder="Monto inicial (€)" />
+      <button onclick="addBag()">Agregar bolsa</button>
+    </div>
+
+    <div class="bags" id="bags"></div>
+  </div>
+
+  <script>
+    // 🔑 CONFIGURACIÓN JSONBIN
+    const BIN_ID = "696e758aae596e708fe71b14";
+    const MASTER_KEY = "$2a$10$nTUBpHHS5uOG3Vg7UcdV/.jj5fDXHPE524fdEKPmYfS3KoRXqavEm";
+
+    let bags = [];
+
+    async function loadBags() {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+        headers: { "X-Master-Key": MASTER_KEY }
+      });
+      const data = await res.json();
+      bags = data.record.bags || [];
+      render();
+    }
+
+    async function save() {
+      await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Master-Key": MASTER_KEY
+        },
+        body: JSON.stringify({ bags })
+      });
+    }
+
+    function addBag() {
+      const name = bagName.value.trim();
+      const amount = Number(bagBudget.value);
+      if (!name || amount <= 0) return alert('Datos inválidos');
+
+      bags.push({ name, balance: amount });
+      bagName.value = '';
+      bagBudget.value = '';
+      save();
+      render();
+    }
+
+    function addExpense(i) {
+      const input = document.getElementById(`expense-${i}`);
+      const amount = Number(input.value);
+      if (amount <= 0) return;
+      bags[i].balance -= amount;
+      input.value = '';
+      save();
+      render();
+    }
+
+    function addIncome(i) {
+      const input = document.getElementById(`income-${i}`);
+      const amount = Number(input.value);
+      if (amount <= 0) return;
+      bags[i].balance += amount;
+      input.value = '';
+      save();
+      render();
+    }
+
+    function render() {
+      const container = document.getElementById('bags');
+      container.innerHTML = '';
+      bags.forEach((bag, i) => {
+        const colorClass = bag.balance < 0 ? 'negativo' : 'positivo';
+        container.innerHTML += `
+          <div class="bag">
+            <h3>${bag.name}</h3>
+            <div class="saldo ${colorClass}">€${bag.balance.toFixed(2)}</div>
+            <div class="controls">
+              <input id="expense-${i}" type="number" placeholder="Gasto (€)" />
+              <button class="gasto" onclick="addExpense(${i})">-</button>
+            </div>
+            <div class="controls">
+              <input id="income-${i}" type="number" placeholder="Agregar (€)" />
+              <button class="ingreso" onclick="addIncome(${i})">+</button>
+            </div>
+          </div>`;
+      });
+    }
+
+    loadBags();
+  </script>
+</body>
+</html>
